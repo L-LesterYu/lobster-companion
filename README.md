@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-339933?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
 
-一个基于 Electron + Canvas 2D 的可爱龙虾桌面宠物，专为 [OpenClaw](https://openclaw.com) 设计的 Agent Skill。当你的 AI Agent 在工作时，龙虾会在桌面上实时展示工作状态，并通过语音播报关键进展——让你不用盯着屏幕也能掌握一切。
+一个基于 Electron 的可爱龙虾桌面宠物，专为 [OpenClaw](https://openclaw.com) 设计的 Agent Skill。当你的 AI Agent 在工作时，龙虾会在桌面上实时展示工作状态，并通过语音播报关键进展——让你不用盯着屏幕也能掌握一切。
 
 ---
 
@@ -12,7 +12,7 @@
 
 | 功能 | 说明 |
 |------|------|
-| 🦞 **Q版可爱龙虾** | 纯 Canvas 2D 手绘的红色龙虾，支持 6 种状态动画 |
+| 🦞 **Q版可爱龙虾** | 手绘的红色龙虾，支持 6 种状态动画 |
 | 🖥️ **桌面悬浮窗** | 无边框透明窗口，始终置顶，可拖拽、可缩放 |
 | 🔔 **系统托盘** | 最小化到托盘，随时唤出 |
 | 📡 **HTTP API** | 本地 API 端点，接收外部状态推送 |
