@@ -77,12 +77,20 @@ npm install --registry=https://registry.npmmirror.com
 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron
 ```
 
-如果 Electron 启动时报 `Electron failed to install correctly`，执行以下命令修复：
+如果 Electron 启动时报 `Electron failed to install correctly`，说明二进制文件下载不完整，执行以下命令修复：
 
 ```bash
+# 删除损坏的 Electron 缓存
 rm -rf node_modules/electron
-ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron
+
+# 使用国内镜像重新安装（--force 确保重新下载）
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron --force
+
+# 验证安装是否成功（应显示 dist 目录列表）
+ls node_modules/electron/dist/
 ```
+
+> 💡 如果仍然失败，可以尝试清理 npm 缓存后重试：`npm cache clean --force`
 
 ### Plugin Hook 安装（自动状态推送）
 
