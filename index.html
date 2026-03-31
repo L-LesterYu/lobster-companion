@@ -1,0 +1,557 @@
+<!--
+ * 🦞 AI项目经理 · 龙虾工作室 v1.0.1 (Canvas 2D · 悬浮窗版)
+ * 纯 Canvas 2D API，无外部依赖
+ * Electron 悬浮窗模式：无边框、透明、始终置顶
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦞 龙虾助手</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;background:transparent !important;overflow:hidden;user-select:none;width:100vw;height:100vh}
+.canvas-wrapper{width:100%;height:100%;position:relative;display:flex;align-items:center;justify-content:center}
+#scene-canvas{width:100%;height:100%;display:block;cursor:default}
+.status-bubble{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.92);backdrop-filter:blur(8px);padding:10px 24px;border-radius:24px;box-shadow:0 4px 20px rgba(0,0,0,.1);font-size:15px;color:#555;font-weight:600;z-index:5;transition:all .4s ease;max-width:400px;text-align:center}
+.status-bubble .se{font-size:20px;margin-right:6px}
+.status-bubble .st{color:#333}
+.lobster-thought-bubble{position:absolute;pointer-events:none;z-index:15;display:flex;flex-direction:column;align-items:center;transition:opacity .4s;opacity:0;transform:translate(-50%,-100%) scale(0)}
+.lobster-thought-bubble.visible{opacity:1;animation:bIn .4s cubic-bezier(.34,1.56,.64,1) forwards}
+.lobster-thought-bubble.hiding{opacity:0;animation:bOut .3s ease forwards}
+@keyframes bIn{from{transform:translate(-50%,-100%) scale(0);opacity:0}to{transform:translate(-50%,-100%) scale(1);opacity:1}}
+@keyframes bOut{from{transform:translate(-50%,-100%) scale(1);opacity:1}to{transform:translate(-50%,-100%) scale(.5);opacity:0}}
+.thought-bubble-content{background:rgba(255,255,255,.95);backdrop-filter:blur(6px);border-radius:16px;padding:8px 16px;box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:14px;color:#444;font-weight:600;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.thought-bubble-tail{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid rgba(255,255,255,.95);margin-top:-2px}
+.transition-flash{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:12;opacity:0}
+.transition-flash.active{animation:fA .3s ease-out forwards}
+@keyframes fA{0%{opacity:.15}100%{opacity:0}}
+.tf-done{background:#ffd700}.tf-error{background:#ff4444}.tf-normal{background:#fff}
+</style>
+</head>
+<body>
+<div class="canvas-wrapper">
+  <canvas id="scene-canvas"></canvas>
+  <div class="status-bubble" id="statusBubble"><span class="se" id="sEmoji">🌊</span><span class="st" id="sText">发呆中...</span></div>
+  <div class="lobster-thought-bubble" id="thoughtBubble"><div class="thought-bubble-content" id="thoughtText"></div><div class="thought-bubble-tail"></div></div>
+  <div class="transition-flash" id="tFlash"></div>
+</div>
+<script>
+(function(){
+'use strict';
+
+// ===== Canvas Setup =====
+var canvas = document.getElementById('scene-canvas');
+var ctx = canvas.getContext('2d');
+var W, H, dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+function resize() {
+  var wr = canvas.parentElement;
+  W = wr.clientWidth; H = wr.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ===== State =====
+var state = 'idle', stateTime = 0, gTime = 0;
+var customEmoji = null;
+var interactCount = 0;
+var lobsterX = 0, lobsterY = 0;
+
+// ===== Sprite Loader =====
+var sprites = {};
+var workingSprites = {};
+var eatingSprites = [];   // 3 frames: idle-eating
+var sleepySprites = [];   // 3 frames: sleeping, idle-napping, idle-bubbling
+var waitingSprites = [];  // 3 frames: idle-dazing, thinking
+
+function loadFrame(arr, src) {
+  var img = new Image();
+  img.src = src;
+  arr.push(img);
+}
+
+function loadSprites() {
+  // Single-frame: done, error
+  var singleMap = { 'done': 'lobster_coding_done', 'error': 'lobster_coding_error_1_1' };
+  for (var name in singleMap) {
+    var img = new Image();
+    img.src = 'sprites/' + singleMap[name] + '.png';
+    sprites[name] = img;
+  }
+  // Multi-frame: eating (3), sleepy (3), waiting (3)
+  for (var i = 1; i <= 3; i++) {
+    loadFrame(eatingSprites,  'sprites/lobster_eating_' + i + '_1.png');
+    loadFrame(sleepySprites,  'sprites/lobster_sleepy_bubbles_' + i + '_1.png');
+    loadFrame(waitingSprites, 'sprites/lobster_waiting_' + i + '_1.png');
+  }
+  // Working sequence frames
+  var wk = ['starting', 'claws_up', 'mixed', 'typing_down'];
+  var wkFiles = ['lobster_working_starting_1', 'lobster_working_claws_up_1',
+                  'lobster_working_mixed_action_1', 'lobster_working_typing_down_1'];
+  for (var j = 0; j < wk.length; j++) {
+    var img = new Image();
+    img.src = 'sprites/' + wkFiles[j] + '.png';
+    workingSprites[wk[j]] = img;
+  }
+}
+loadSprites();
+
+// Cached working loop frames (avoid per-frame array allocation)
+var workingLoopFrames = [workingSprites.claws_up, workingSprites.mixed, workingSprites.typing_down];
+
+var idleSubs = ['eating','dazing','napping','bubbling'], idleIdx = 0, idleTimer = 0;
+var particles = [];
+var thoughtTimer = 0, thoughtTarget = 12 + Math.random() * 8, snoreTimer = 0, bubbleTimer = 0;
+
+// ===== Cached DOM refs =====
+var elEmoji = document.getElementById('sEmoji');
+var elText  = document.getElementById('sText');
+var elFlash = document.getElementById('tFlash');
+var elThought = document.getElementById('thoughtBubble');
+var elThoughtTxt = document.getElementById('thoughtText');
+
+// ===== Status Texts =====
+var statusInfo = {
+  idle:     { emoji: '🌊', texts: ['发呆中...', '打瞌睡...', '吹泡泡~'] },
+  working:  { emoji: '💻', texts: ['努力工作中...', '正在写代码...', '专注开发中...'] },
+  sleeping: { emoji: '😴', texts: ['呼呼大睡...', '做美梦中...', 'Zzz...'] },
+  thinking: { emoji: '🤔', texts: ['思考中...', '让我想想...', '头脑风暴中...'] },
+  done:     { emoji: '🎉', texts: ['搞定啦！', '任务完成！', '太棒了！'] },
+  error:    { emoji: '💥', texts: ['哎呀出错啦！', '需要修复...', '呜呜...'] }
+};
+
+function setStatus() {
+  var info = statusInfo[state];
+  elEmoji.textContent = customEmoji || info.emoji;
+  var idx = state === 'idle' ? idleIdx : Math.floor(gTime * 0.3) % info.texts.length;
+  elText.textContent = info.texts[idx];
+}
+
+// ===== Audio Engine =====
+var aCtx = null;
+function ac() { if (!aCtx) aCtx = new (window.AudioContext || window.webkitAudioContext)(); return aCtx; }
+
+function snd(type) {
+  try {
+    var c = ac(), t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    switch(type) {
+      case 'success':
+        o.type='sine'; o.frequency.setValueAtTime(523,t); o.frequency.setValueAtTime(659,t+.1); o.frequency.setValueAtTime(784,t+.2);
+        g.gain.setValueAtTime(.15,t); g.gain.exponentialRampToValueAtTime(.001,t+.4);
+        o.start(t); o.stop(t+.4); break;
+      case 'error':
+        o.type='sawtooth'; o.frequency.setValueAtTime(200,t); o.frequency.exponentialRampToValueAtTime(80,t+.3);
+        g.gain.setValueAtTime(.1,t); g.gain.exponentialRampToValueAtTime(.001,t+.3);
+        o.start(t); o.stop(t+.3); break;
+      case 'pet':
+        o.type='sine'; o.frequency.setValueAtTime(440,t); o.frequency.exponentialRampToValueAtTime(660,t+.15);
+        g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+.25);
+        o.start(t); o.stop(t+.25); break;
+      case 'transition':
+        o.type='triangle'; o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(600,t+.15);
+        o.frequency.exponentialRampToValueAtTime(300,t+.3);
+        g.gain.setValueAtTime(.1,t); g.gain.exponentialRampToValueAtTime(.001,t+.3);
+        o.start(t); o.stop(t+.3); break;
+      case 'achievement':
+        o.type='sine'; o.frequency.setValueAtTime(523,t); o.frequency.setValueAtTime(659,t+.12);
+        o.frequency.setValueAtTime(784,t+.24); o.frequency.setValueAtTime(1047,t+.36);
+        g.gain.setValueAtTime(.15,t); g.gain.exponentialRampToValueAtTime(.001,t+.6);
+        o.start(t); o.stop(t+.6); break;
+      case 'snore':
+        o.type='sine'; o.frequency.setValueAtTime(100,t); o.frequency.linearRampToValueAtTime(150,t+.3);
+        o.frequency.linearRampToValueAtTime(80,t+.6);
+        g.gain.setValueAtTime(.08,t); g.gain.exponentialRampToValueAtTime(.001,t+.6);
+        o.start(t); o.stop(t+.6); break;
+      case 'type':
+        o.type='square'; o.frequency.setValueAtTime(1800,t);
+        g.gain.setValueAtTime(.03,t); g.gain.exponentialRampToValueAtTime(.001,t+.03);
+        o.start(t); o.stop(t+.03); break;
+    }
+  } catch(e) {}
+}
+
+// ===== Achievements =====
+var ACHS = [
+  { id:'first_click', name:'初次接触', icon:'👆', done:false },
+  { id:'click_10', name:'人气王', icon:'🔥', done:false },
+  { id:'click_50', name:'万人迷', icon:'💖', done:false },
+  { id:'all_states', name:'百变龙虾', icon:'🎭', done:false }
+];
+var achDone = {}, visited = {};
+
+function loadAch() {
+  try {
+    var d = JSON.parse(localStorage.getItem('lobster_ach') || '{}');
+    for (var i = 0; i < ACHS.length; i++) if (d[ACHS[i].id]) { ACHS[i].done = true; achDone[ACHS[i].id] = true; }
+    interactCount = d.ic || 0;
+    visited = d.vs || {};
+  } catch(e) {}
+}
+function saveAch() {
+  try { localStorage.setItem('lobster_ach', JSON.stringify({ic: interactCount, vs: visited})); } catch(e) {}
+}
+function unlock(id) {
+  if (achDone[id]) return;
+  achDone[id] = true;
+  for (var i = 0; i < ACHS.length; i++) if (ACHS[i].id === id) ACHS[i].done = true;
+  snd('achievement');
+  var a = ACHS.find(function(x) { return x.id === id; });
+  for (var j = 0; j < 15; j++) addParticle(lobsterX + (Math.random()-.5)*120, lobsterY - 80, 'star');
+  showThought(a.icon + ' ' + a.name + '!');
+  updAchUI(); saveAch();
+}
+function checkAch() {
+  if (interactCount >= 1) unlock('first_click');
+  if (interactCount >= 10) unlock('click_10');
+  if (interactCount >= 50) unlock('click_50');
+  visited[state] = true;
+  if (Object.keys(visited).length >= ACHS.length) unlock('all_states');
+}
+function updAchUI() {
+  var c = 0; for (var i = 0; i < ACHS.length; i++) if (ACHS[i].done) c++;
+  var el = document.getElementById('iAch');
+  if (el) el.textContent = c + '/' + ACHS.length;
+}
+loadAch(); updAchUI();
+
+// ===== Thought Bubble =====
+var thoughtTimeout = null;
+
+function showThought(txt) {
+  elThoughtTxt.textContent = txt;
+  elThought.className = 'lobster-thought-bubble visible';
+  elThought.style.left = lobsterX + 'px';
+  elThought.style.top = (lobsterY - 130) + 'px';
+  if (thoughtTimeout) clearTimeout(thoughtTimeout);
+  thoughtTimeout = setTimeout(function() {
+    elThought.className = 'lobster-thought-bubble hiding';
+  }, 2500);
+}
+
+var randomThoughts = ['今天也是元气满满的一天~','摸摸头~','加油鸭！','好吃好吃~','让我想想...','搞定了！','哎呀...','嘿嘿~','想吃海鲜~','代码写不完啦'];
+function randomBubble() {
+  showThought(randomThoughts[Math.floor(Math.random() * randomThoughts.length)]);
+}
+
+// ===== Transition Flash =====
+function flash(type) {
+  elFlash.className = 'transition-flash active tf-' + type;
+  setTimeout(function() { elFlash.className = 'transition-flash'; }, 400);
+}
+
+// ===== Particle System =====
+var CONFETTI_COLORS = ['#ff6b9d','#ffd700','#7c6cf0','#4caf50','#2196f3','#ff9800'];
+var STAR_COLORS = ['#ffd700','#ffab00','#ff6d00'];
+
+function addParticle(x, y, type) {
+  var p = { x: x, y: y, life: 1, type: type };
+  switch(type) {
+    case 'zzz':
+      p.vx = (Math.random()-.5)*0.5; p.vy = -0.5-Math.random()*0.5;
+      p.decay = 0.005; p.size = 8+Math.random()*6; p.color = '#7c6cf0'; break;
+    case 'heart':
+      p.vx = (Math.random()-.5)*1.5; p.vy = -1.5-Math.random()*2;
+      p.decay = 0.012; p.size = 6+Math.random()*6; p.color = '#ff6b9d'; break;
+    case 'confetti':
+      p.vx = (Math.random()-.5)*4; p.vy = -2-Math.random()*4;
+      p.decay = 0.01; p.size = 3+Math.random()*4;
+      p.color = CONFETTI_COLORS[Math.floor(Math.random()*6)];
+      p.rot = Math.random()*Math.PI*2; p.rv = (Math.random()-.5)*0.2; break;
+    case 'smoke':
+      p.vx = (Math.random()-.5)*1; p.vy = -0.8-Math.random()*0.5;
+      p.decay = 0.015; p.size = 5+Math.random()*8; p.color = '#999'; break;
+    case 'star':
+      p.vx = (Math.random()-.5)*3; p.vy = -1.5-Math.random()*2;
+      p.decay = 0.015; p.size = 4+Math.random()*5;
+      p.color = STAR_COLORS[Math.floor(Math.random()*3)]; break;
+    case 'bubble':
+      p.vx = (Math.random()-.5)*0.3; p.vy = -0.6-Math.random()*0.8;
+      p.decay = 0.008; p.size = 3+Math.random()*6;
+      p.color = 'rgba(135,206,250,0.6)'; break;
+  }
+  particles.push(p);
+}
+
+function updateParticles() {
+  for (var i = particles.length - 1; i >= 0; i--) {
+    var p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.life -= p.decay;
+    if (p.type === 'confetti') { p.vy += 0.08; p.rot += p.rv; }
+    if (p.type === 'smoke')    { p.size += 0.1; p.vx *= 0.99; }
+    if (p.life <= 0) {
+      // Swap-with-last for O(1) removal
+      particles[i] = particles[particles.length - 1];
+      particles.pop();
+    }
+  }
+}
+
+function drawHeart(x, y, s) {
+  ctx.beginPath();
+  ctx.moveTo(x, y + s*0.3);
+  ctx.bezierCurveTo(x - s*0.5, y - s*0.3, x - s, y + s*0.1, x, y + s*0.8);
+  ctx.bezierCurveTo(x + s, y + s*0.1, x + s*0.5, y - s*0.3, x, y + s*0.3);
+  ctx.fill();
+}
+
+function drawStar(x, y, r) {
+  ctx.beginPath();
+  var DEG = Math.PI / 180;
+  for (var i = 0; i < 5; i++) {
+    var a1 = (i*72-90)*DEG, a2 = ((i*72+36)-90)*DEG;
+    if (i === 0) ctx.moveTo(x + Math.cos(a1)*r, y + Math.sin(a1)*r);
+    else ctx.lineTo(x + Math.cos(a1)*r, y + Math.sin(a1)*r);
+    ctx.lineTo(x + Math.cos(a2)*r*0.4, y + Math.sin(a2)*r*0.4);
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawParticles() {
+  for (var i = 0; i < particles.length; i++) {
+    var p = particles[i];
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    switch(p.type) {
+      case 'heart': drawHeart(p.x, p.y, p.size); break;
+      case 'zzz':
+        ctx.font = Math.round(p.size*2.5) + 'px sans-serif';
+        ctx.fillText('Z', p.x, p.y); break;
+      case 'star': drawStar(p.x, p.y, p.size); break;
+      case 'confetti':
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+        ctx.restore(); break;
+      case 'bubble':
+        ctx.strokeStyle = p.color; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.5, p.size), 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath(); ctx.arc(p.x - p.size*0.3, p.y - p.size*0.3, p.size*0.25, 0, Math.PI*2); ctx.fill();
+        break;
+      default:
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.5, p.size), 0, Math.PI*2); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ===== Draw Lobster =====
+function drawLobster(cx, cy) {
+  lobsterX = cx; lobsterY = cy;
+
+  // Select sprite
+  var img;
+  var idleFrame = Math.floor(gTime / 5) % 3;   // 15s per loop
+  var otherFrame = Math.floor(gTime * 3) % 3;    // ~1s per loop
+
+  if (state === 'idle') {
+    var sub = idleSubs[idleIdx];
+    if (sub === 'eating')              img = eatingSprites[idleFrame];
+    else if (sub === 'napping' || sub === 'bubbling') img = sleepySprites[idleFrame];
+    else if (sub === 'dazing')         img = waitingSprites[idleFrame];
+  } else if (state === 'working') {
+    if (stateTime < 0.4) {
+      img = workingSprites.starting;
+    } else {
+      img = workingLoopFrames[Math.floor((stateTime - 0.4) / 0.2) % 3];
+    }
+  } else if (state === 'sleeping') {
+    img = sleepySprites[otherFrame];
+  } else if (state === 'thinking') {
+    img = waitingSprites[otherFrame];
+  } else {
+    img = sprites[state]; // done, error — single frame
+  }
+
+  // Draw shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.06)';
+  ctx.beginPath(); ctx.ellipse(cx, cy + 85, 65, 12, 0, 0, Math.PI*2); ctx.fill();
+
+  // Draw sprite
+  if (img && img.complete && img.naturalWidth > 0) {
+    var drawSize = 200;
+    ctx.drawImage(img, cx - drawSize/2, cy - drawSize*0.7, drawSize, drawSize);
+  } else {
+    // Loading placeholder
+    ctx.fillStyle = '#e53935';
+    ctx.beginPath(); ctx.arc(cx, cy, 40, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('加载中...', cx, cy + 5);
+  }
+}
+
+// ===== State Management =====
+function setState(newState, message, emoji) {
+  var newEmoji = emoji || (statusInfo[newState] ? statusInfo[newState].emoji : '');
+  if (newState === state && newEmoji === (customEmoji || statusInfo[state].emoji) && message === elText.textContent) return;
+  state = newState;
+  stateTime = 0;
+  snd('transition');
+  customEmoji = emoji || null;
+
+  if (newState === 'done') flash('done');
+  else if (newState === 'error') flash('error');
+  else flash('normal');
+
+  setStatus();
+  if (message) elText.textContent = message;
+  checkAch(); saveAch();
+
+  if (newState === 'done') {
+    for (var j = 0; j < 20; j++) addParticle(lobsterX + (Math.random()-.5)*150, lobsterY - 50, 'confetti');
+    snd('success');
+  }
+  if (newState === 'error') {
+    for (var j = 0; j < 10; j++) addParticle(lobsterX + (Math.random()-.5)*60, lobsterY + 60, 'smoke');
+    snd('error');
+  }
+}
+
+// ===== Mouse Events =====
+function getCanvasPos(e) {
+  var rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function isInLobster(mx, my) {
+  var dx = mx - lobsterX, dy = my - lobsterY;
+  return (dx*dx)/(75*75) + (dy*dy)/(110*110) < 1;
+}
+
+// ===== Window Drag =====
+var isDragging = false, lastMouseX = 0, lastMouseY = 0;
+
+canvas.addEventListener('mousedown', function(e) {
+  isDragging = true;
+  lastMouseX = e.screenX;
+  lastMouseY = e.screenY;
+  canvas.style.cursor = 'grabbing';
+});
+
+window.addEventListener('mousemove', function(e) {
+  if (isDragging && window.lobsterAPI) {
+    window.lobsterAPI.moveWindow(e.screenX - lastMouseX, e.screenY - lastMouseY);
+    lastMouseX = e.screenX;
+    lastMouseY = e.screenY;
+  } else {
+    canvas.style.cursor = isInLobster(e.clientX, e.clientY) ? 'pointer' : 'grab';
+  }
+});
+
+window.addEventListener('mouseup', function() {
+  isDragging = false;
+  canvas.style.cursor = 'grab';
+});
+
+canvas.addEventListener('click', function(e) {
+  var p = getCanvasPos(e);
+  if (isInLobster(p.x, p.y)) {
+    interactCount++;
+    snd('pet');
+    for (var i = 0; i < 8; i++) addParticle(lobsterX + (Math.random()-.5)*60, lobsterY - 40 + (Math.random()-.5)*40, 'heart');
+    if (state === 'done' || state === 'error') setState('idle', null, null);
+    checkAch(); saveAch();
+  }
+});
+
+// ===== Scroll Zoom =====
+canvas.addEventListener('wheel', function(e) {
+  e.preventDefault();
+  if (window.lobsterAPI) window.lobsterAPI.resizeWindow(e.deltaY > 0 ? -20 : 20);
+}, { passive: false });
+
+// ===== HTTP API state listener =====
+if (window.lobsterAPI) {
+  window.lobsterAPI.onStateChange(function(data) {
+    setState(data.state, data.message, data.emoji);
+  });
+}
+
+// ===== Idle Sub-state Rotation =====
+function updateIdle(dt) {
+  idleTimer += dt;
+  if (idleTimer > 4) {
+    idleTimer = 0;
+    idleIdx = (idleIdx + 1) % idleSubs.length;
+    setStatus();
+  }
+}
+
+// ===== State Particles =====
+function stateParticles(dt) {
+  if (state === 'sleeping') {
+    snoreTimer += dt;
+    if (snoreTimer > 1.5) {
+      snoreTimer = 0;
+      addParticle(lobsterX + 30, lobsterY - 60, 'zzz');
+      snd('snore');
+    }
+  }
+  if (state === 'done' && Math.random() < 0.15) {
+    addParticle(lobsterX + (Math.random()-.5)*200, lobsterY - 100, 'confetti');
+  }
+  if (state === 'error' && Math.random() < 0.08) {
+    addParticle(lobsterX + (Math.random()-.5)*40, lobsterY + 50, 'smoke');
+  }
+  if (state === 'thinking' && Math.random() < 0.03) {
+    addParticle(lobsterX + (Math.random()-.5)*20, lobsterY - 100, 'star');
+  }
+  if (state === 'idle' && idleIdx === 3) {
+    bubbleTimer += dt;
+    if (bubbleTimer > 0.6) {
+      bubbleTimer = 0;
+      addParticle(lobsterX + (Math.random()-.5)*10, lobsterY - 75, 'bubble');
+    }
+  }
+}
+
+// ===== Thought Timer =====
+function updateThought(dt) {
+  thoughtTimer += dt;
+  if (thoughtTimer > thoughtTarget) {
+    thoughtTimer = 0;
+    thoughtTarget = 12 + Math.random() * 8;
+    randomBubble();
+  }
+}
+
+// ===== Main Loop =====
+var lastT = performance.now();
+
+function loop(now) {
+  var dt = Math.min((now - lastT) / 1000, 0.1);
+  lastT = now;
+  gTime += dt;
+  stateTime += dt;
+
+  ctx.clearRect(0, 0, W, H);
+
+  var cx = W / 2, cy = H / 2 + 20;
+
+  if (state === 'idle') updateIdle(dt);
+  stateParticles(dt);
+  updateParticles();
+  updateThought(dt);
+
+  drawLobster(cx, cy);
+  drawParticles();
+
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+// Expose setState globally (debug/backward compat)
+window.switchState = setState;
+
+})();
+</script>
+</body>
+</html>
