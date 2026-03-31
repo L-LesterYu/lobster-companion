@@ -1,4 +1,4 @@
-# 🦞 Lobster Companion
+# 🦞 OpenClaw Companion
 
 [![OpenClaw Skill](https://img.shields.io/badge/OpenClaw-Skill-ff6b35?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0Ij48dGV4dCB5PSIxOCIgZm9udC1zaXplPSIxNiI+🦞PC90ZXh0Pjwvc3ZnPg==)](https://github.com/openclaw/openclaw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -19,7 +19,7 @@
 | 💬 **语音气泡** | 根据状态显示不同的气泡文案和 Emoji |
 | 🔊 **语音播报** | 通过 TTS 语音播报子 Agent 派出、完成、出错等关键事件 |
 | 🤖 **OpenClaw 集成** | 作为 Skill 安装后，自动推送 OpenClaw 工作状态 |
-| 🔌 **Plugin Hook** | 内置 `lobster-companion-hook` 插件，全自动化状态推送 |
+| 🔌 **Plugin Hook** | 内置 `openclaw-companion-hook` 插件，全自动化状态推送 |
 
 ## 🎭 支持的状态
 
@@ -59,8 +59,8 @@
 ```bash
 # 手动克隆到 skills 目录
 cd ~/.openclaw/skills
-git clone https://github.com/L-LesterYu/lobster-companion.git
-cd lobster-companion
+git clone https://github.com/L-LesterYu/openclaw-companion.git
+cd openclaw-companion
 npm install
 ```
 
@@ -70,7 +70,7 @@ npm install
 
 ```bash
 # 使用淘宝镜像安装依赖
-cd ~/.openclaw/skills/lobster-companion
+cd ~/.openclaw/skills/openclaw-companion
 npm install --registry=https://registry.npmmirror.com
 
 # 使用 Electron 国内镜像安装二进制（如果首次安装失败）
@@ -98,17 +98,17 @@ ls node_modules/electron/dist/
 
 ```bash
 # 1. 将插件复制到 OpenClaw extensions 目录
-cp -r ~/.openclaw/skills/lobster-companion/plugin-hook ~/.openclaw/extensions/lobster-companion-hook
+cp -r ~/.openclaw/skills/openclaw-companion/plugin-hook ~/.openclaw/extensions/openclaw-companion-hook
 
 # 2. 在 openclaw.json 中启用插件（如果尚未配置）
 # 确保 plugins.entries 中包含：
-# "lobster-companion-hook": { "enabled": true }
+# "openclaw-companion-hook": { "enabled": true }
 
 # 3. 重启 Gateway 加载插件
 openclaw gateway restart
 
 # 4. 验证插件状态
-openclaw plugins list  # 查看 lobster-companion-hook 是否为 loaded
+openclaw plugins list  # 查看 openclaw-companion-hook 是否为 loaded
 ```
 
 #### Plugin Hook 事件说明
@@ -124,7 +124,7 @@ openclaw plugins list  # 查看 lobster-companion-hook 是否为 loaded
 
 #### Plugin Hook 配置项
 
-在 `openclaw.json` 的 `plugins.entries.lobster-companion-hook.config` 中可自定义：
+在 `openclaw.json` 的 `plugins.entries.openclaw-companion-hook.config` 中可自定义：
 
 ```json
 {
@@ -151,7 +151,7 @@ openclaw plugins list  # 查看 lobster-companion-hook 是否为 loaded
 ### 启动龙虾
 
 ```bash
-cd ~/.openclaw/skills/lobster-companion
+cd ~/.openclaw/skills/openclaw-companion
 npx electron . --no-sandbox
 ```
 
@@ -209,7 +209,7 @@ curl http://localhost:18182/api/health
 ## 📁 项目结构
 
 ```
-lobster-companion/
+openclaw-companion/
 ├── index.html          # 主界面（Canvas 渲染）
 ├── main.js             # Electron 主进程 + Express 服务器
 ├── preload.js          # 预加载脚本
@@ -239,7 +239,7 @@ lobster-companion/
 Electron 二进制未完整下载。删除后重新安装：
 
 ```bash
-cd ~/.openclaw/skills/lobster-companion
+cd ~/.openclaw/skills/openclaw-companion
 rm -rf node_modules/electron
 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron
 ```
@@ -278,7 +278,7 @@ npm install --registry=https://registry.npmmirror.com
 <details>
 <summary><b>Q: Plugin Hook 提示加载失败或找不到</b></summary>
 
-确保插件已正确安装到 `~/.openclaw/extensions/lobster-companion-hook/`，并在 `openclaw.json` 中启用了 `lobster-companion-hook`。安装步骤见上方 [Plugin Hook 安装](#plugin-hook-安装自动状态推送) 章节。没有该插件时，龙虾仍可通过手动 API 调用正常工作。
+确保插件已正确安装到 `~/.openclaw/extensions/openclaw-companion-hook/`，并在 `openclaw.json` 中启用了 `openclaw-companion-hook`。安装步骤见上方 [Plugin Hook 安装](#plugin-hook-安装自动状态推送) 章节。没有该插件时，龙虾仍可通过手动 API 调用正常工作。
 
 </details>
 

@@ -114,7 +114,7 @@ function extractToolDetail(toolName, params) {
 // ─── Plugin Entry ────────────────────────────────────────────────────
 
 module.exports = definePluginEntry({
-  id: "lobster-companion-hook",
+  id: "openclaw-companion-hook",
   name: "Lobster Companion Hook",
   description: "Automatically pushes agent working status to the Lobster Companion desktop pet",
 

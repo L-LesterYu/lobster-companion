@@ -1,7 +1,7 @@
 {
-  "name": "lobster-companion",
+  "name": "openclaw-companion",
   "version": "1.0.0",
-  "description": "🦞 Lobster Companion - Canvas 2D desktop pet for OpenClaw, built with Electron",
+  "description": "🦞 OpenClaw Companion - Canvas 2D desktop pet for OpenClaw, built with Electron",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

@@ -1,7 +1,7 @@
 {
-  "id": "lobster-companion-hook",
-  "name": "Lobster Companion Hook",
-  "description": "Automatically pushes OpenClaw agent working status to the Lobster Companion desktop pet via HTTP API",
+  "id": "openclaw-companion-hook",
+  "name": "OpenClaw Companion Hook",
+  "description": "Automatically pushes OpenClaw agent working status to the OpenClaw Companion desktop pet via HTTP API",
   "version": "1.0.0",
   "configSchema": {
     "type": "object",
@@ -10,12 +10,12 @@
       "apiUrl": {
         "type": "string",
         "default": "http://localhost:18182/api/state",
-        "description": "Lobster Companion HTTP API endpoint for status push"
+        "description": "OpenClaw Companion HTTP API endpoint for status push"
       },
       "healthUrl": {
         "type": "string",
         "default": "http://localhost:18182/api/health",
-        "description": "Lobster Companion health check URL"
+        "description": "OpenClaw Companion health check URL"
       },
       "throttleMs": {
         "type": "number",

@@ -1,8 +1,8 @@
 {
-  "name": "lobster-companion-hook",
+  "name": "openclaw-companion-hook",
   "version": "1.0.0",
   "type": "module",
-  "description": "OpenClaw plugin that automatically pushes agent working status to the Lobster Companion desktop pet",
+  "description": "OpenClaw plugin that automatically pushes agent working status to the OpenClaw Companion desktop pet",
   "main": "index.js",
   "openclaw": {
     "extensions": ["./index.js"]

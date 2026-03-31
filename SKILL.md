@@ -1,17 +1,17 @@
 ---
-name: lobster-companion
+name: openclaw-companion
 description: 龙虾伴侣 - 实时推送工作状态到桌面龙虾悬浮窗，并通过语音播报 session 日志
 metadata: {"openclaw": {"emoji": "🦞", "always": true}}
 ---
 
-# Lobster Companion Skill
+# OpenClaw Companion Skill
 
 ## 描述
 与桌面龙虾助手联动，实时推送 OpenClaw 工作状态，并通过 TTS 语音播报 session 日志。
 
 ## 自动化状态推送（Plugin Hook）
 
-**推荐方式：** 已通过 `lobster-companion-hook` 插件实现自动化。
+**推荐方式：** 已通过 `openclaw-companion-hook` 插件实现自动化。
 
 插件会在每次工具调用后自动推送到龙虾，无需手动调用 `pushState`。插件功能：
 - 监听 `after_tool_call` hook，自动捕获所有工具调用
@@ -39,13 +39,13 @@ metadata: {"openclaw": {"emoji": "🦞", "always": true}}
 
 ### Plugin 安装
 
-插件位于 `~/.openclaw/extensions/lobster-companion-hook/`，已在 `openclaw.json` 中启用。
+插件位于 `~/.openclaw/extensions/openclaw-companion-hook/`，已在 `openclaw.json` 中启用。
 
 管理命令：
 ```bash
 openclaw plugins list          # 查看插件状态
-openclaw plugins disable lobster-companion-hook   # 禁用
-openclaw plugins enable lobster-companion-hook    # 启用
+openclaw plugins disable openclaw-companion-hook   # 禁用
+openclaw plugins enable openclaw-companion-hook    # 启用
 ```
 
 ---
@@ -105,7 +105,7 @@ timeout 3 curl -s http://localhost:18182/api/health
 启动龙虾程序。
 
 ```bash
-cd ~/.openclaw/skills/lobster-companion && nohup npx electron . --no-sandbox > /dev/null 2>&1 &
+cd ~/.openclaw/skills/openclaw-companion && nohup npx electron . --no-sandbox > /dev/null 2>&1 &
 ```
 
 #### ensureLobster()
@@ -168,7 +168,7 @@ cd ~/.openclaw/skills/lobster-companion && nohup npx electron . --no-sandbox > /
 ---
 
 ## 龙虾程序位置
-`~/.openclaw/skills/lobster-companion/`
+`~/.openclaw/skills/openclaw-companion/`
 
 ## 注意事项
 - 推送失败时静默处理，不要因龙虾挂了影响主流程
