@@ -1,0 +1,37 @@
+{
+  "id": "lobster-companion-hook",
+  "name": "Lobster Companion Hook",
+  "description": "Automatically pushes OpenClaw agent working status to the Lobster Companion desktop pet via HTTP API",
+  "version": "1.0.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiUrl": {
+        "type": "string",
+        "default": "http://localhost:18182/api/state",
+        "description": "Lobster Companion HTTP API endpoint for status push"
+      },
+      "healthUrl": {
+        "type": "string",
+        "default": "http://localhost:18182/api/health",
+        "description": "Lobster Companion health check URL"
+      },
+      "throttleMs": {
+        "type": "number",
+        "default": 2000,
+        "description": "Minimum interval (ms) between consecutive pushes to avoid flooding"
+      },
+      "idleTimeoutMs": {
+        "type": "number",
+        "default": 300000,
+        "description": "After this many ms with no activity, push 'sleeping' state (5 min default)"
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Master toggle to enable/disable the hook"
+      }
+    }
+  }
+}
