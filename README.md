@@ -45,17 +45,43 @@
 
 ## 📦 安装
 
-### 作为 OpenClaw Skill 安装（推荐）
+### 前置要求
+
+- **Node.js** >= 18
+- **npm**
+- **桌面环境**（显示 GUI 窗口）：Linux 需要 X11 或 Wayland，macOS/Windows 无额外要求
+- **服务器/无头环境**：需通过 X11 Forwarding（`ssh -X`）或虚拟帧缓冲（`xvfb`）提供显示服务
+
+### 作为 OpenClaw Skill 安装
+
+> ⚠️ 当前版本尚未发布到 ClawHub，请使用手动安装方式。
 
 ```bash
-# 方法 1：通过 OpenClaw CLI
-openclaw skill install lobster-companion
-
-# 方法 2：手动克隆到 skills 目录
+# 手动克隆到 skills 目录
 cd ~/.openclaw/skills
 git clone https://github.com/L-LesterYu/lobster-companion.git
 cd lobster-companion
 npm install
+```
+
+### 国内网络环境
+
+国内网络环境下，`npm install` 和 Electron 二进制下载可能超时或失败，建议使用镜像源：
+
+```bash
+# 使用淘宝镜像安装依赖
+cd ~/.openclaw/skills/lobster-companion
+npm install --registry=https://registry.npmmirror.com
+
+# 使用 Electron 国内镜像安装二进制（如果首次安装失败）
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron
+```
+
+如果 Electron 启动时报 `Electron failed to install correctly`，执行以下命令修复：
+
+```bash
+rm -rf node_modules/electron
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron
 ```
 
 ### Plugin Hook 安装
@@ -69,6 +95,8 @@ openclaw plugins disable lobster-companion-hook # 禁用
 openclaw plugins enable lobster-companion-hook  # 启用
 ```
 
+> ⚠️ `lobster-companion-hook` 插件需要单独安装，当前仓库中未包含。请确认该插件已放置在 `~/.openclaw/extensions/lobster-companion-hook/` 目录下。
+
 ---
 
 ## 🎮 使用方法
@@ -79,6 +107,8 @@ openclaw plugins enable lobster-companion-hook  # 启用
 cd ~/.openclaw/skills/lobster-companion
 npx electron . --no-sandbox
 ```
+
+> 💡 `--no-sandbox` 参数在 Linux 服务器环境下通常必须，避免 Chromium 沙箱权限问题。macOS/Windows 桌面环境可省略。启动时如果看到 `Exiting GPU process due to errors during initialization` 警告，属于正常现象，不影响功能。
 
 ### 推送状态（手动/调试用）
 
@@ -147,6 +177,59 @@ lobster-companion/
     ├── lobster_coding_error_1_1.png
     └── lobster_sleepy_bubbles_*.png
 ```
+
+---
+
+## ❓ 常见问题
+
+<details>
+<summary><b>Q: 启动时报 <code>Electron failed to install correctly</code></b></summary>
+
+Electron 二进制未完整下载。删除后重新安装：
+
+```bash
+cd ~/.openclaw/skills/lobster-companion
+rm -rf node_modules/electron
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron
+```
+
+</details>
+
+<details>
+<summary><b>Q: <code>npm install</code> 卡住不动</b></summary>
+
+网络问题导致依赖下载超时。切换到国内镜像：
+
+```bash
+npm install --registry=https://registry.npmmirror.com
+```
+
+</details>
+
+<details>
+<summary><b>Q: 启动时出现 GPU 相关错误</b></summary>
+
+服务器环境通常没有 GPU 加速，这是预期行为，不影响龙虾功能。可忽略。
+
+</details>
+
+<details>
+<summary><b>Q: 服务器没有显示器，如何使用？</b></summary>
+
+龙虾是一个桌面 GUI 应用，需要显示服务。以下方案可选：
+
+- **X11 Forwarding**：`ssh -X user@server`，启动后窗口会转发到本地
+- **Xvfb 虚拟帧缓冲**：`xvfb-run npx electron . --no-sandbox`
+- **VNC / 远程桌面**：安装 VNC 服务后在远程桌面中启动
+
+</details>
+
+<details>
+<summary><b>Q: Plugin Hook 提示找不到</b></summary>
+
+`lobster-companion-hook` 插件不在本仓库中，需单独获取并安装到 `~/.openclaw/extensions/lobster-companion-hook/`。没有该插件时，龙虾仍可通过手动 API 调用正常工作。
+
+</details>
 
 ---
 
